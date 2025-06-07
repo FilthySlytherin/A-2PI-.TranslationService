@@ -49,3 +49,8 @@ def synthesize_speech(text, lang="en"):
     tts.write_to_fp(mp3_fp)
     mp3_fp.seek(0)
     return mp3_fp
+
+    mp3_fp = BytesIO()
+    tts.write_to_fp(mp3_fp)
+    mp3_fp.seek(0)
+    return mp3_fp
