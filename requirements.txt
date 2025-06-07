@@ -5,6 +5,7 @@ gTTS
 pydub
 playsound==1.2.2
 SpeechRecognition
-PyAudio
+sounddevice
+soundfile
 numpy
 requests
