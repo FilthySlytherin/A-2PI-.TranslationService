@@ -1,55 +1,51 @@
-# voicebot_utils.py
-
-import openai
-from googletrans import Translator
-from gtts import gTTS
 import os
-import speech_recognition as sr
 import tempfile
+from io import BytesIO
+from gtts import gTTS
+from googletrans import Translator
+import speech_recognition as sr
+import openai
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-translator = Translator()
-
-def record_audio_to_text():
+# =============== Transcribe Speech ================
+def transcribe_audio_file(file_path):
     recognizer = sr.Recognizer()
-    mic = sr.Microphone()
-    with mic as source:
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-        audio = recognizer.listen(source, timeout=5)
+    with sr.AudioFile(file_path) as source:
+        audio = recognizer.record(source)
+    try:
+        return sr.Recognizer().recognize_google(audio)
+    except sr.UnknownValueError:
+        return "Could not understand audio."
+    except sr.RequestError as e:
+        return f"Error: {e}"
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-        f.write(audio.get_wav_data())
-        audio_path = f.name
+# =============== Translate Text ================
+def translate_text(text, dest_lang="en"):
+    translator = Translator()
+    translation = translator.translate(text, dest=dest_lang)
+    return translation.text, translation.src
 
-    with sr.AudioFile(audio_path) as source:
-        audio_data = recognizer.record(source)
-        try:
-            text = recognizer.recognize_google(audio_data)
-            os.remove(audio_path)
-            return text
-        except Exception as e:
-            os.remove(audio_path)
-            return f"[Error] Could not transcribe: {e}"
+def translate_back(text, target_lang):
+    if target_lang == "en":
+        return text
+    translator = Translator()
+    translation = translator.translate(text, dest=target_lang)
+    return translation.text
 
-def translate_text(text, dest="en"):
-    trans = translator.translate(text, dest=dest)
-    return trans.text, trans.src
-
-def get_chatgpt_response(text, messages=None):
-    if messages is None:
-        messages = [{"role": "system", "content": "You are a helpful multilingual assistant."}]
-    messages.append({"role": "user", "content": text})
+# =============== ChatGPT ================
+def get_chatgpt_response(prompt):
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
-        messages=messages
+        messages=[
+            {"role": "system", "content": "You are a helpful multilingual assistant."},
+            {"role": "user", "content": prompt},
+        ]
     )
-    reply = response.choices[0].message.content.strip()
-    messages.append({"role": "assistant", "content": reply})
-    return reply, messages
+    return response.choices[0].message.content.strip()
 
-def generate_tts_audio(text, lang):
+# =============== Text-to-Speech ================
+def synthesize_speech(text, lang="en"):
     tts = gTTS(text=text, lang=lang)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tts_file:
-        tts.save(tts_file.name)
-        return tts_file.name
+    mp3_fp = BytesIO()
+    tts.write_to_fp(mp3_fp)
+    mp3_fp.seek(0)
+    return mp3_fp
