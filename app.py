@@ -1,47 +1,52 @@
-# app.py
-
 import streamlit as st
-from voicebot_utils import (
-    record_audio_to_text,
+import openai
+import tempfile
+import os
+
+from voice_utils import (
+    transcribe_audio_file,
     translate_text,
     get_chatgpt_response,
-    generate_tts_audio
+    translate_back,
+    synthesize_speech,
 )
-from pydub import AudioSegment
-from io import BytesIO
 
-st.set_page_config(page_title="🎤 AI Voice Chat", layout="centered")
-st.title("🌍 AI Chatbot Translator")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "system", "content": "You are a helpful multilingual assistant."}]
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+st.set_page_config(page_title="AI Chat Translator", layout="centered")
+st.title("🌍 AI Chatbot Translator with Voice")
+st.markdown("Upload your voice in any language, and talk to an AI that replies in your language.")
 
-if st.button("🎙️ Speak"):
-    text = record_audio_to_text()
-    if text.startswith("[Error]"):
-        st.error(text)
+uploaded_file = st.file_uploader("🎤 Upload a voice file (.wav)", type=["wav"])
+
+if uploaded_file:
+    st.audio(uploaded_file, format="audio/wav")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_audio:
+        tmp_audio.write(uploaded_file.read())
+        tmp_audio_path = tmp_audio.name
+
+    st.info("Transcribing...")
+    transcribed_text = transcribe_audio_file(tmp_audio_path)
+    st.success(f"📝 Transcribed: {transcribed_text}")
+
+    if transcribed_text and not transcribed_text.startswith("Error"):
+        translated_input, source_lang = translate_text(transcribed_text, dest_lang="en")
+        st.markdown(f"🌐 **Translated to English:** {translated_input} _(from {source_lang})_")
+
+        with st.spinner("🤖 ChatGPT thinking..."):
+            response_en = get_chatgpt_response(translated_input)
+
+        st.markdown(f"💬 **ChatGPT Response (English):** {response_en}")
+
+        response_translated = translate_back(response_en, target_lang=source_lang)
+        st.markdown(f"🔁 **Response in {source_lang}:** {response_translated}")
+
+        audio_bytes = synthesize_speech(response_translated, lang=source_lang)
+        st.audio(audio_bytes, format="audio/mp3")
     else:
-        st.success(f"You said: `{text}`")
-        translated, src_lang = translate_text(text)
-        st.info(f"Translated: `{translated}`")
+        st.warning("No valid transcription to proceed.")
 
-        response, st.session_state.messages = get_chatgpt_response(translated, st.session_state.messages)
-        back_translated, _ = translate_text(response, dest=src_lang)
-        st.success(f"🤖 ChatGPT: `{back_translated}`")
-
-        st.session_state.chat_history.append((text, back_translated))
-
-        tts_path = generate_tts_audio(back_translated, src_lang)
-        audio = AudioSegment.from_file(tts_path)
-        audio_bytes = BytesIO()
-        audio.export(audio_bytes, format="wav")
-        st.audio(audio_bytes, format="audio/wav")
-        os.remove(tts_path)
-
-# Show history
-if st.session_state.chat_history:
     st.subheader("Conversation History")
     for user, bot in reversed(st.session_state.chat_history):
         st.markdown(f"**You**: {user}")
