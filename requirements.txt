@@ -1,11 +1,24 @@
+# ─── Core ──────────────────────────────────────────────
 openai
 streamlit
+
+# ─── Translation ───────────────────────────────────────
 googletrans==4.0.0-rc1
+
+# Temporary shim for Python ≥3.13 (restores the std-lib cgi module)
+python-stdlib-cgi
+
+# ─── Text-to-speech & audio playback ───────────────────
 gTTS
 pydub
 playsound==1.2.2
-SpeechRecognition
-sounddevice
-soundfile
+
+# ─── Speech recognition stack ──────────────────────────
+SpeechRecognition            # still expects PyAudio
+PyAudio                      #  ➜ needs PortAudio; see notes below
+
+# ─── Misc helpers ──────────────────────────────────────
 numpy
 requests
+sounddevice                  # optional if you decide to drop PyAudio later
+soundfile
