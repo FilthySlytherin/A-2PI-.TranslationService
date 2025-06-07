@@ -1,0 +1,10 @@
+openai
+streamlit
+googletrans==4.0.0-rc1
+gTTS
+pydub
+playsound==1.2.2
+SpeechRecognition
+PyAudio
+numpy
+requests
